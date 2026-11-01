@@ -61,6 +61,25 @@ Project/repository ID: `create-visible-clipboard`. NeoForge mod ID:
 `create_visible_clipboard` (NeoForge forbids hyphens). Java uses 4-space indentation
 and Create-style names, imports, and control flow.
 
+## Clipboard appearance constants
+
+Edit the six constants at the top of
+`common/src/main/java/dev/createvisibleclipboard/ClipboardLayout.java`, then rebuild:
+
+| Constant | Default | Meaning |
+| --- | --- | --- |
+| `CHECKBOX_LEFT_OFFSET` | `0` | Checkbox inset from the page's left edge; text and click areas move with it |
+| `CHECKBOX_SIZE` | `9` | Checkbox size in page pixels |
+| `CHECKBOX_TEXT_GAP` | `5` | Gap before the entry text (or its item icon) |
+| `TEXT_SIZE` | `9` | Entry text and page-indicator height; `9` is Minecraft's normal font size |
+| `ARROW_SIZE` | `12` | Page-arrow size in page pixels |
+| `LINE_SPACING` | `0` | Extra spacing per text line, including the gap before the next entry |
+
+Use positive sizes and nonnegative gaps that fit the page. Text wrapping, row
+heights, footer placement, and clickable areas follow these settings. Both placed
+and held clipboards use the same layout. Dense pages still shrink to fit, and the
+page indicator shrinks if needed to fit between the arrows.
+
 ## Automatic releases
 
 GitHub Actions builds and tests pushes and pull requests. A successful push also
@@ -100,7 +119,7 @@ python -B -m unittest discover -s .github/scripts -p 'test_*.py'
 
 ## In-game verification
 
-Verified locally: a Gradle build, nine automated layout/geometry/data tests, and
+Verified locally: a Gradle build, automated layout/geometry/data tests, and
 client startup with Create 6.0.10 on NeoForge 21.1.219. The startup smoke test was
 time-limited; it does not verify gameplay interactions.
 

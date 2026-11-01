@@ -33,10 +33,9 @@ public class ClipboardPage {
         if (pageCount != 0) {
             for (ClipboardEntry entry : content.pages().get(pageIndex)) {
                 int iconWidth = entry.icon.isEmpty() ? 0 : 18;
-                List<FormattedCharSequence> lines = font.split(entry.text, ClipboardLayout.TEXT_WIDTH - iconWidth);
-                int height = ClipboardLayout.rowHeight(lines.size(), iconWidth != 0);
-                rows.add(new Row(entry, lines, y, height));
-                y += height;
+                List<FormattedCharSequence> lines = font.split(entry.text, ClipboardLayout.textWidth(iconWidth));
+                rows.add(new Row(entry, lines, y));
+                y += ClipboardLayout.rowHeight(lines.size(), iconWidth != 0);
             }
         }
         scale = ClipboardLayout.contentScale(y);
@@ -45,11 +44,9 @@ public class ClipboardPage {
     public int entryAt(double x, double y) {
         x /= scale;
         y /= scale;
-        if (x < 0 || x >= ClipboardLayout.CONTROL_SIZE)
-            return -1;
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
-            if (y >= row.y && y < row.y + row.height)
+            if (ClipboardLayout.checkboxContains(x, y, row.y))
                 return i;
         }
         return -1;
@@ -64,9 +61,14 @@ public class ClipboardPage {
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
             ClipboardEntry entry = row.entry;
-            draw(font, "\u25a1", 0, row.y, i == hoveredEntry ? GREEN : 0xff8d7f6b, pose, buffer, light);
+            pose.pushPose();
+            pose.translate(ClipboardLayout.CHECKBOX_LEFT_OFFSET, row.y, 0);
+            float checkboxScale = (float) ClipboardLayout.CHECKBOX_SIZE / font.lineHeight;
+            pose.scale(checkboxScale, checkboxScale, checkboxScale);
+            draw(font, "\u25a1", 0, 0, i == hoveredEntry ? GREEN : 0xff8d7f6b, pose, buffer, light);
             if (entry.checked)
-                draw(font, "\u2714", 0, row.y - 1, GREEN, pose, buffer, light);
+                draw(font, "\u2714", 0, -1, GREEN, pose, buffer, light);
+            pose.popPose();
 
             int textX = ClipboardLayout.TEXT_X;
             if (!entry.icon.isEmpty()) {
@@ -87,12 +89,16 @@ public class ClipboardPage {
                 textX += 18;
             }
 
-            int y = row.y;
+            pose.pushPose();
+            pose.translate(textX, row.y, 0);
+            pose.scale(ClipboardLayout.TEXT_SCALE, ClipboardLayout.TEXT_SCALE, ClipboardLayout.TEXT_SCALE);
+            float y = 0;
             for (FormattedCharSequence line : row.lines) {
-                font.drawInBatch(line, textX, y, entry.checked ? GREEN : INK, false,
+                font.drawInBatch(line, 0, y, entry.checked ? GREEN : INK, false,
                     pose.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, light);
-                y += 9;
+                y += ClipboardLayout.LINE_HEIGHT / ClipboardLayout.TEXT_SCALE;
             }
+            pose.popPose();
         }
         pose.popPose();
 
@@ -100,13 +106,30 @@ public class ClipboardPage {
             return;
         int hoverDirection = ClipboardLayout.pageDirection(hoverX, hoverY);
         if (pageIndex > 0)
-            draw(font, "<", 2, ClipboardLayout.FOOTER_Y, hoverDirection == -1 ? GREEN : INK, pose, buffer, light);
+            drawArrow(font, "<", 0, hoverDirection == -1 ? GREEN : INK, pose, buffer, light);
         if (pageIndex + 1 < pageCount)
-            draw(font, ">", ClipboardLayout.WIDTH - 10, ClipboardLayout.FOOTER_Y,
+            drawArrow(font, ">", ClipboardLayout.WIDTH - ClipboardLayout.ARROW_SIZE,
                 hoverDirection == 1 ? GREEN : INK, pose, buffer, light);
         Component indicator = Component.translatable("book.pageIndicator", pageIndex + 1, pageCount);
-        font.drawInBatch(indicator, (ClipboardLayout.WIDTH - font.width(indicator)) / 2f,
-            ClipboardLayout.FOOTER_Y, INK, false, pose.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, light);
+        float indicatorScale = Math.min(ClipboardLayout.TEXT_SCALE,
+            (ClipboardLayout.WIDTH - 2 * ClipboardLayout.ARROW_SIZE - 8f) / font.width(indicator));
+        pose.pushPose();
+        pose.translate(ClipboardLayout.WIDTH / 2f,
+            ClipboardLayout.FOOTER_Y + (ClipboardLayout.FOOTER_HEIGHT - font.lineHeight * indicatorScale) / 2f, 0);
+        pose.scale(indicatorScale, indicatorScale, indicatorScale);
+        font.drawInBatch(indicator, -font.width(indicator) / 2f, 0, INK, false,
+            pose.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, light);
+        pose.popPose();
+    }
+
+    private static void drawArrow(Font font, String arrow, float x, int color, PoseStack pose,
+        MultiBufferSource buffer, int light) {
+        float scale = (float) ClipboardLayout.ARROW_SIZE / font.lineHeight;
+        pose.pushPose();
+        pose.translate(x + (ClipboardLayout.ARROW_SIZE - font.width(arrow) * scale) / 2f, ClipboardLayout.ARROW_Y, 0);
+        pose.scale(scale, scale, scale);
+        draw(font, arrow, 0, 0, color, pose, buffer, light);
+        pose.popPose();
     }
 
     private static void draw(Font font, String text, float x, float y, int color, PoseStack pose,
@@ -114,5 +137,5 @@ public class ClipboardPage {
         font.drawInBatch(text, x, y, color, false, pose.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, light);
     }
 
-    private record Row(ClipboardEntry entry, List<FormattedCharSequence> lines, int y, int height) {}
+    private record Row(ClipboardEntry entry, List<FormattedCharSequence> lines, int y) {}
 }
