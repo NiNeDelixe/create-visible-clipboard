@@ -61,6 +61,43 @@ Project/repository ID: `create-visible-clipboard`. NeoForge mod ID:
 `create_visible_clipboard` (NeoForge forbids hyphens). Java uses 4-space indentation
 and Create-style names, imports, and control flow.
 
+## Automatic releases
+
+GitHub Actions builds and tests pushes and pull requests. A successful push also
+publishes the NeoForge JAR to **GitHub Releases** when:
+
+- The branch is a Minecraft version such as `1.21.1`, matching `minecraft_version`
+  in `gradle.properties`.
+- The newest version heading in `CHANGES.md` was absent before that push.
+- That heading matches `version` in `gradle.properties` and has release notes.
+
+To release a new version, update `version` and prepend an entry like this, then
+commit and push to the matching Minecraft branch:
+
+```markdown
+## 0.1.1
+
+- Describe the changes in this release.
+```
+
+The tag is `v0.1.1`; the entry's body becomes the release notes. Versions
+such as `0.2.0-beta.1` are published as prereleases. Editing an existing entry does
+not publish again. When a push adds several entries, only the newest version is
+published. The initial `0.1.0` entry is eligible on its first push too.
+
+Publication uses GitHub's built-in `GITHUB_TOKEN` with `contents: write` in the
+release job. It uploads the tested JAR to a draft before making the release public.
+Retries can finish an incomplete draft; an already published release is skipped.
+An existing tag pointing at another commit fails instead of being overwritten.
+Tags are repository-wide: use distinct mod versions for releases from different
+Minecraft branches.
+
+Run the release-detection checks locally with:
+
+```powershell
+python -B -m unittest discover -s .github/scripts -p 'test_*.py'
+```
+
 ## In-game verification
 
 Verified locally: a Gradle build, nine automated layout/geometry/data tests, and

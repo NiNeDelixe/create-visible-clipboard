@@ -10,8 +10,20 @@ permissions:
 jobs:
     build:
         runs-on: ubuntu-latest
+        outputs:
+            publish: ${{ steps.release.outputs.publish }}
+            tag: ${{ steps.release.outputs.tag }}
+            title: ${{ steps.release.outputs.title }}
+            prerelease: ${{ steps.release.outputs.prerelease }}
         steps:
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Test release detection
+              run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py'
+            - name: Detect new changelog version
+              id: release
+              run: python3 -B .github/scripts/release.py
             - uses: actions/setup-java@v4
               with:
                   distribution: temurin
@@ -24,3 +36,69 @@ jobs:
                   path: |
                       neoforge/build/libs/*.jar
                       !neoforge/build/libs/*-sources.jar
+                  if-no-files-found: error
+            - name: Save release notes
+              if: steps.release.outputs.publish == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: create-visible-clipboard-release-notes
+                  path: ${{ runner.temp }}/release-notes.md
+                  if-no-files-found: error
+
+    release:
+        needs: build
+        if: github.event_name == 'push' && needs.build.outputs.publish == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        concurrency:
+            group: release-${{ needs.build.outputs.tag }}
+            cancel-in-progress: false
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: create-visible-clipboard-*
+                  merge-multiple: true
+                  path: dist
+            - name: Publish NeoForge JAR
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  GH_REPO: ${{ github.repository }}
+                  RELEASE_TAG: ${{ needs.build.outputs.tag }}
+                  RELEASE_TITLE: ${{ needs.build.outputs.title }}
+                  PRERELEASE: ${{ needs.build.outputs.prerelease }}
+              shell: bash
+              run: |
+                  shopt -s nullglob
+                  jars=(dist/*.jar)
+                  if (( ${#jars[@]} != 1 )); then
+                      echo 'Expected exactly one distributable NeoForge JAR.' >&2
+                      exit 1
+                  fi
+
+                  if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+                      if [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$GITHUB_SHA" ]]; then
+                          echo 'This version is already tagged at a different commit. Bump the version.' >&2
+                          exit 1
+                      fi
+                  else
+                      git tag "$RELEASE_TAG" "$GITHUB_SHA"
+                      git push origin "refs/tags/$RELEASE_TAG"
+                  fi
+
+                  if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft'); then
+                      if [[ "$draft" == 'false' ]]; then
+                          echo 'Release already published; skipping.'
+                          exit 0
+                      fi
+                  else
+                      gh release create "$RELEASE_TAG" --verify-tag --draft \
+                          --title "$RELEASE_TITLE" --notes-file dist/release-notes.md \
+                          --prerelease="$PRERELEASE"
+                  fi
+
+                  gh release upload "$RELEASE_TAG" "${jars[0]}" --clobber
+                  gh release edit "$RELEASE_TAG" --draft=false
