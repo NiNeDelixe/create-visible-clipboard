@@ -1,5 +1,11 @@
 # Changes
 
+## 0.1.1
+
+- Add constants for configurations
+- Add mod icon
+- Fix size clipboard controll buttons 
+
 ## 0.1.0
 
 - Display clipboard contents on placed blocks and held clipboards.
