@@ -1,5 +1,8 @@
 # Create: Visible Clipboard
 
+[![CurseForge](https://img.shields.io/badge/CurseForge-F16436?style=for-the-badge&logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/create-visible-clipboard) 
+[![Modrinth](https://img.shields.io/badge/Modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white)](https://modrinth.com/mod/create-visible-clipboard)
+
 A client-side Create add-on for **Minecraft 1.21.1 / NeoForge**. Read the actual
 contents on placed and held clipboards, check tasks, and turn pages directly on
 placed clipboards.
